@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-import errno
-
 import logging
 import os, tempfile, commands
 import urllib2
 from django.conf import settings
 from django.contrib.staticfiles.storage import StaticFilesStorage
-from django.core.files import File, locks
-from django.core.files.move import file_move_safe
+from django.core.files import File
 from django.utils import simplejson
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
@@ -22,13 +19,12 @@ NOCOMPRESS = getattr(settings, 'NOCOMPRESS', ())
 
 PUNYPNG_KEYS = getattr(settings, 'PUNYPNG_KEYS', [])
 
-CSSTIDY_OPTIONS =getattr(settings, 'CSSTIDY_OPTIONS',
+CSSTIDY_OPTIONS = getattr(settings, 'CSSTIDY_OPTIONS',
                 '--template=highest --remove_last_\;=true --silent=true')
 """
- -preserve_css=true|false - perform only space optimization, plus don't touch comments
+--preserve_css=true|false - space optimization only, don't touch comments
 --remove_last_\;=true|false - {property:value;} -> {property:value}
 --merge_selectors=[2|1|0]
-
 """
 
 YUI_JAR = getattr(settings, 'YUI_JAR',
@@ -38,8 +34,9 @@ GCLOSURE_JAR = getattr(settings, 'GCLOSURE_JAR',
 GCLOSURE_COMPILER_OPTIONS = getattr(settings, 'GCLOSURE_COMPILER_OPTIONS',
         ' --compilation_level SIMPLE_OPTIMIZATIONS --warning_level QUIET')
 """
-    --compilation_level = WHITESPACE_ONLY|SIMPLE_OPTIMIZATIONS|ADVANCED_OPTIMIZATIONS
-    --warning_level = QUIET | DEFAULT | VERBOSE
+--compilation_level =
+        WHITESPACE_ONLY|SIMPLE_OPTIMIZATIONS|ADVANCED_OPTIMIZATIONS
+--warning_level = QUIET | DEFAULT | VERBOSE
 """
 
 class PunyKeys(object):
@@ -52,13 +49,17 @@ class PunyKeys(object):
 
     def next(self):
         if self.index >= len(self.keys) - 1:
-            raise RuntimeError("We've ran out of punypng keys! (did we have any?) Add more of them to settings.PUNYPNG_KEYS")
+            raise RuntimeError(
+                "We've ran out of punypng keys (did we have any?)! "
+                "Add more keys to settings.PUNYPNG_KEYS"
+            )
         self.index += 1
         return self.current()
 
 PUNYKEY_GEN = PunyKeys(PUNYPNG_KEYS)
 
 def temp_file(content):
+    """creates temporary file with specified content and returns file object"""
     file = tempfile.NamedTemporaryFile()
     file.write(content)
     file.flush()
@@ -73,7 +74,7 @@ def compressor(func):
         error, output = commands.getstatusoutput(command)
         if error:
             raise RuntimeError("Error running %s: \n %s\n"%(func_name, output))
-        log.info("compression rate: %s%%"%(len(output)*100/input_len))
+        log.info("compression rate: %s%%" % (len(output)*100/input_len))
         if len(output) > input_len:
             raise RuntimeError("\t compression SKIPPED")
         return File(temp_file(output))
@@ -82,22 +83,22 @@ def compressor(func):
 @compressor
 def csstidy(fname, options=CSSTIDY_OPTIONS):
     """ csstidy css compressor  """
-    return "csstidy %s %s"%(fname, options)
+    return "csstidy %s %s" % (fname, options)
 
 @compressor
 def yui_css_compressor(fname):
     """ YUI css compressor  """
-    return "cat %s |java -jar %s --type css"%(fname, YUI_JAR)
+    return "cat %s |java -jar %s --type css" % (fname, YUI_JAR)
 
 @compressor
 def gclosure_compiler(fname, options=GCLOSURE_COMPILER_OPTIONS):
     """ google closure compiler js compressor  """
-    return "java -jar %s --js %s %s"%(GCLOSURE_JAR, fname, options)
+    return "java -jar %s --js %s %s" % (GCLOSURE_JAR, fname, options)
 
 @compressor
 def yui_js_compressor(fname):
     """ YUI css compressor  """
-    return "cat %s |java -jar %s --type js"%(fname, YUI_JAR)
+    return "cat %s |java -jar %s --type js" % (fname, YUI_JAR)
 
 def punypng(file):
     """ punypng.com images compressor  """
@@ -105,7 +106,8 @@ def punypng(file):
     def punypng_json(file, key):
         log.debug("punypng key: %s"%key)
         datagen, headers = multipart_encode({"img": file, "key": key})
-        request = urllib2.Request('http://www.punypng.com/api/optimize', datagen, headers)
+        request = urllib2.Request('http://www.punypng.com/api/optimize',
+                    datagen, headers)
         response = urllib2.urlopen(request).read()
         log.debug("Punipng.com response: %s"%response)
         return simplejson.loads(response)
@@ -146,7 +148,7 @@ def autocompress(filename, file_obj):
 
     if filename in NOCOMPRESS:
         pass
-    if ext =='css':
+    if ext == 'css':
         try:
             return compress_css(file_obj.name)
         except RuntimeError, (e):

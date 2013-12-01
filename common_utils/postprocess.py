@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# The async part is almost a copy of django-utils @async
-# https://github.com/coleifer/django-utils/blob/master/djutils/decorators.py
 from django.conf import settings
 import threading, Queue
 
@@ -8,7 +6,8 @@ queue = Queue.Queue()
 
 def worker_thread():
     while True:
-        target, target_args, target_kwargs, callback, callback_args, callback_kwargs = queue.get()
+        target, target_args, target_kwargs, callback, callback_args, \
+            callback_kwargs = queue.get()
         try:
             result = target(*target_args, **target_kwargs)
         except:
@@ -26,10 +25,13 @@ def wait_all():
     queue.join()
 
 def async(callback=None, *callback_args, **callback_kwargs):
-    """ Decorator to execute the function asynchronously in a separate thread """
+    """executes function asynchronously in a separate thread """
     def decorator(target):
         def call_func(*target_args, **target_kwargs):
-            queue.put((target, target_args, target_kwargs, callback, callback_args, callback_kwargs))
+            queue.put(
+                (target, target_args, target_kwargs, callback,
+                 callback_args, callback_kwargs)
+            )
         return call_func
     return decorator
 

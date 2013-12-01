@@ -18,7 +18,8 @@ class Command(CollectCommand):
 
         except AttributeError:
             raise ImproperlyConfigured(
-                'Please specify AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_CF_DISTRIBUTION_ID in settings\n')
+                'Please specify AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,'
+                ' AWS_CF_DISTRIBUTION_ID in settings\n')
 
         super(Command, self).handle_noargs(**options)
 
@@ -46,9 +47,11 @@ class Command(CollectCommand):
             return dump.name
 
         if len(invalid_files) > invalidation_max_files:
-            raise AssertionError(u"""
-Length of files to invalidation is more than %s, but there no code to handle that.
-File names to be invalidated dumped to JSON file %s, please invalidate it by hands\n"""
+            raise AssertionError(
+                "There are more than %s files to invalidate, "
+                "AWS doesn't support it at the moment.\n"
+                "File names to be invalidated dumped to JSON file %s, "
+                "please invalidate manually\n"""
                 % (invalidation_max_files, dump(invalid_files)))
 
         conn = CloudFrontConnection(access_key, secret_key)
@@ -60,7 +63,8 @@ File names to be invalidated dumped to JSON file %s, please invalidate it by han
                 conn.create_invalidation_request(distribution, thousand)
         except exception.CloudFrontServerError, message:
             self.stderr.write('Error while processing:\n\n%s\n\n'
-                'Invalid files dumped to JSON file %s, please invalidate it by hands\n'
+                'Unprocessed files dumped to JSON file %s, '
+                'please invalidate manually\n'
                 % (message, dump(invalid_files)))
         else:
             self.stdout.write('Complete\n')
